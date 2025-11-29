@@ -1,9 +1,10 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ShoppingCart, User, LogOut, LayoutDashboard } from "lucide-react";
+import { ShoppingCart, User, LogOut, LayoutDashboard, Home, Package, Receipt } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface NavbarProps {
   cartItemCount?: number;
@@ -13,6 +14,7 @@ interface NavbarProps {
 
 const Navbar = ({ cartItemCount = 0, isAdmin = false, user }: NavbarProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
   const handleLogout = async () => {
@@ -32,6 +34,8 @@ const Navbar = ({ cartItemCount = 0, isAdmin = false, user }: NavbarProps) => {
     }
   };
 
+  const isActive = (path: string) => location.pathname === path;
+
   return (
     <nav className="border-b border-border bg-card sticky top-0 z-50 backdrop-blur-lg bg-card/80">
       <div className="container mx-auto px-4 py-4">
@@ -40,11 +44,66 @@ const Navbar = ({ cartItemCount = 0, isAdmin = false, user }: NavbarProps) => {
             ShopHub
           </Link>
 
-          <div className="flex items-center gap-4">
+          {user && (
+            <div className="hidden md:flex items-center gap-1">
+              <Link to="/">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className={cn(
+                    "gap-2",
+                    isActive("/") && "bg-muted text-primary"
+                  )}
+                >
+                  <Home className="h-4 w-4" />
+                  Products
+                </Button>
+              </Link>
+
+              <Link to="/orders">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className={cn(
+                    "gap-2",
+                    isActive("/orders") && "bg-muted text-primary"
+                  )}
+                >
+                  <Receipt className="h-4 w-4" />
+                  Orders
+                </Button>
+              </Link>
+
+              {isAdmin && (
+                <Link to="/admin">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className={cn(
+                      "gap-2",
+                      isActive("/admin") && "bg-muted text-primary"
+                    )}
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    Admin Panel
+                  </Button>
+                </Link>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
             {user ? (
               <>
                 <Link to="/cart">
-                  <Button variant="ghost" size="icon" className="relative">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={cn(
+                      "relative",
+                      isActive("/cart") && "bg-muted text-primary"
+                    )}
+                  >
                     <ShoppingCart className="h-5 w-5" />
                     {cartItemCount > 0 && (
                       <Badge
@@ -57,30 +116,15 @@ const Navbar = ({ cartItemCount = 0, isAdmin = false, user }: NavbarProps) => {
                   </Button>
                 </Link>
 
-                <Link to="/orders">
-                  <Button variant="ghost" size="sm">
-                    Orders
-                  </Button>
-                </Link>
-
-                {isAdmin && (
-                  <Link to="/admin">
-                    <Button variant="ghost" size="sm">
-                      <LayoutDashboard className="h-4 w-4 mr-2" />
-                      Admin
-                    </Button>
-                  </Link>
-                )}
-
-                <Button variant="ghost" size="sm" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
+                <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
+                  <LogOut className="h-4 w-4" />
+                  <span className="hidden sm:inline">Logout</span>
                 </Button>
               </>
             ) : (
               <Link to="/auth">
-                <Button variant="default" size="sm">
-                  <User className="h-4 w-4 mr-2" />
+                <Button variant="default" size="sm" className="gap-2">
+                  <User className="h-4 w-4" />
                   Login
                 </Button>
               </Link>
