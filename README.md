@@ -1,6 +1,3 @@
-It sounds like you copied the text from the previous answer, but you want the raw Markdown source code so you can paste it directly into a file (like `README.md`) to get the nice formatting.
-
-Here is the **complete, raw Markdown code** for the "Secure Shop Project" README. You can copy everything in the code block below:
 
 ````markdown
 # 🔒 Secure Shop Project
