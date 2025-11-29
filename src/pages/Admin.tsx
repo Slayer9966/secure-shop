@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
+import AdminWelcome from "@/components/AdminWelcome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,9 +11,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import { z } from "zod";
+import { format } from "date-fns";
 
 const productSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(100),
@@ -37,9 +40,11 @@ const Admin = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [cartItemCount, setCartItemCount] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [ordersLoading, setOrdersLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
@@ -103,6 +108,7 @@ const Admin = () => {
     } else {
       setIsAdmin(true);
       fetchProducts();
+      fetchOrders();
     }
   };
 
@@ -123,6 +129,36 @@ const Admin = () => {
       setProducts(data || []);
     }
     setLoading(false);
+  };
+
+  const fetchOrders = async () => {
+    setOrdersLoading(true);
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`
+        id,
+        total_price,
+        status,
+        created_at,
+        profiles!orders_user_id_fkey (name, email),
+        order_items (
+          quantity,
+          price,
+          products (name)
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load orders",
+        variant: "destructive",
+      });
+    } else {
+      setOrders(data || []);
+    }
+    setOrdersLoading(false);
   };
 
   const resetForm = () => {
@@ -245,18 +281,32 @@ const Admin = () => {
       <Navbar cartItemCount={cartItemCount} isAdmin={isAdmin} user={user} />
       
       <main className="container mx-auto px-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">Admin Panel</h1>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Product
-              </Button>
-            </DialogTrigger>
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">Admin Panel</h1>
+          <p className="text-muted-foreground">Manage your store's products and orders</p>
+        </div>
+
+        <AdminWelcome productCount={products.length} orderCount={orders.length} />
+
+        <Tabs defaultValue="products" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="products">Products</TabsTrigger>
+            <TabsTrigger value="orders">Orders</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="products">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-semibold">Product Management</h2>
+              <Dialog open={isDialogOpen} onOpenChange={(open) => {
+                setIsDialogOpen(open);
+                if (!open) resetForm();
+              }}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Product
+                  </Button>
+                </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>{editingProduct ? "Edit Product" : "Add New Product"}</DialogTitle>
@@ -322,15 +372,12 @@ const Admin = () => {
                   {editingProduct ? "Update Product" : "Create Product"}
                 </Button>
               </form>
-            </DialogContent>
-          </Dialog>
-        </div>
+                </DialogContent>
+              </Dialog>
+            </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Products</CardTitle>
-          </CardHeader>
-          <CardContent>
+            <Card>
+              <CardContent className="pt-6">
             {loading ? (
               <div className="h-64 flex items-center justify-center">
                 <div className="animate-pulse text-muted-foreground">Loading...</div>
@@ -376,11 +423,80 @@ const Admin = () => {
                       </TableCell>
                     </TableRow>
                   ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                  </TableBody>
+                </Table>
+              )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="orders">
+            <Card>
+              <CardHeader>
+                <CardTitle>Order Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {ordersLoading ? (
+                  <div className="h-64 flex items-center justify-center">
+                    <div className="animate-pulse text-muted-foreground">Loading orders...</div>
+                  </div>
+                ) : orders.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground">No orders yet</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Order ID</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Items</TableHead>
+                        <TableHead>Total</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {orders.map((order) => (
+                        <TableRow key={order.id}>
+                          <TableCell className="font-mono text-sm">
+                            #{order.id.slice(0, 8)}
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{order.profiles?.name || "Unknown"}</div>
+                              <div className="text-sm text-muted-foreground">{order.profiles?.email}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {order.order_items.map((item: any, idx: number) => (
+                                <div key={idx} className="text-muted-foreground">
+                                  {item.products.name} x{item.quantity}
+                                </div>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            ${order.total_price.toFixed(2)}
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                              {order.status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {format(new Date(order.created_at), "PPP")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
