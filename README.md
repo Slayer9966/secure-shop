@@ -1,6 +1,6 @@
 
 ````markdown
-# 🔒 Secure Shop Project
+### 🔒 Secure Shop Project
 
 ## Project Info
 
