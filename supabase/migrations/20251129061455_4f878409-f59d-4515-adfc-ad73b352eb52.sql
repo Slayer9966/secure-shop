@@ -93,6 +93,8 @@ CREATE POLICY "Users can update their own profile" ON public.profiles
 
 CREATE POLICY "Users can insert their own profile" ON public.profiles
   FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "Admins can view all profiles" ON public.profiles
+  FOR SELECT USING (public.has_role(auth.uid(), 'admin'));
 
 -- User roles policies
 CREATE POLICY "Users can view their own roles" ON public.user_roles
