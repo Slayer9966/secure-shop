@@ -140,24 +140,54 @@ const Admin = () => {
         total_price,
         status,
         created_at,
-        profiles!orders_user_id_fkey (name, email),
-        order_items (
+        user_id,
+        order_items(
           quantity,
           price,
-          products (name)
+          products(name)
         )
       `)
       .order("created_at", { ascending: false });
 
     if (error) {
+      console.error("Order fetch error:", error);
       toast({
         title: "Error",
-        description: "Failed to load orders",
+        description: `Failed to load orders: ${error.message}`,
         variant: "destructive",
       });
-    } else {
-      setOrders(data || []);
+      setOrdersLoading(false);
+      return;
     }
+
+    if (!data || data.length === 0) {
+      setOrders([]);
+      setOrdersLoading(false);
+      return;
+    }
+
+    // Fetch profile data for each unique user_id
+    const userIds = [...new Set(data.map(order => order.user_id).filter(Boolean))];
+    
+    console.log("User IDs:", userIds); // Debug log
+    
+    const { data: profilesData, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, name, email")
+      .in("id", userIds);
+
+    console.log("Profiles Data:", profilesData); // Debug log
+    console.log("Profile Error:", profileError); // Debug log
+
+    // Map profiles to orders
+    const ordersWithProfiles = data.map(order => ({
+      ...order,
+      profiles: profilesData?.find(p => p.id === order.user_id) || null
+    }));
+
+    console.log("Orders with Profiles:", ordersWithProfiles); // Debug log
+
+    setOrders(ordersWithProfiles);
     setOrdersLoading(false);
   };
 
@@ -465,7 +495,7 @@ const Admin = () => {
                           <TableCell>
                             <div>
                               <div className="font-medium">{order.profiles?.name || "Unknown"}</div>
-                              <div className="text-sm text-muted-foreground">{order.profiles?.email}</div>
+                              <div className="text-sm text-muted-foreground">{order.profiles?.email || "N/A"}</div>
                             </div>
                           </TableCell>
                           <TableCell>
